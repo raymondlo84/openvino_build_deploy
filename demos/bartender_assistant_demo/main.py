@@ -102,7 +102,7 @@ def load_chat_model(model_name: str, token: str = None) -> OpenVINOLLM:
         chat_model = OVModelForCausalLM.from_pretrained(model_name, export=True, compile=False, load_in_8bit=False,
                                                         token=token)
 
-        quant_config = OVWeightQuantizationConfig(bits=4, sym=False, ratio=1.0)
+        quant_config = OVWeightQuantizationConfig(bits=4, sym=True, ratio=1.0)
         config = OVConfig(quantization_config=quant_config)
 
         log.info(f"Quantizing {model_name} to INT4... It may take significant amount of time depending on your machine power.")
