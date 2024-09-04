@@ -1,8 +1,6 @@
-# Healthcare Assistant with OpenVINO™
+# Bartender Assistant with OpenVINO™
 
-The demo works as a virtual healthcare assistant, whose task is to greet the patient and summarize the patient's condition based on the conversation and uploaded examination report. 
-
-![](https://github.com/user-attachments/assets/28e66746-1f6c-4dfc-b345-ae9f0e003e76)
+The demo works as a virtual bartender assistant, whose task is to greet your guest. You can up-level the bartender by providing books like the 1001 drinks menu. 
 
 Here are the steps involved in this demo:
 
