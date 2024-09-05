@@ -77,11 +77,11 @@ def load_asr_model(model_name: str) -> None:
 
     model_path = MODEL_DIR / model_name
     #device = "GPU" if ov.__version__ < "2024.3" else "CPU"
-    device = "CPU"
+    device = "GPU"
     # create a distil-whisper model and its processor
     if not model_path.exists():
         log.info(f"Downloading {model_name}... It may take up to 1h depending on your Internet connection.")
-        asr_model = OVModelForSpeechSeq2Seq.from_pretrained(model_name, export=True, load_in_8bit=True, device=device)
+        asr_model = OVModelForSpeechSeq2Seq.from_pretrained(model_name, export=True, load_in_8bit=False, device=device)
         asr_model.save_pretrained(model_path)
         asr_processor = AutoProcessor.from_pretrained(model_name)
         asr_processor.save_pretrained(model_path)
@@ -102,7 +102,7 @@ def load_chat_model(model_name: str, token: str = None) -> OpenVINOLLM:
         chat_model = OVModelForCausalLM.from_pretrained(model_name, export=True, compile=False, load_in_8bit=False,
                                                         token=token)
 
-        quant_config = OVWeightQuantizationConfig(bits=4, sym=False, ratio=1.0)
+        quant_config = OVWeightQuantizationConfig(bits=4, sym=True, ratio=1.0)
         config = OVConfig(quantization_config=quant_config)
 
         log.info(f"Quantizing {model_name} to INT4... It may take significant amount of time depending on your machine power.")
@@ -159,7 +159,7 @@ def load_embedding_model(model_name: str) -> OpenVINOEmbedding:
         embedding_tokenizer.save_pretrained(model_path)
 
     #device = "NPU" if "NPU" in get_available_devices() else "CPU"
-    device = "CPU"
+    device = "NPU"
     return OpenVINOEmbedding(str(model_path), device=device, embed_batch_size=1, model_kwargs={"dynamic_shapes": False})
 
 
@@ -301,23 +301,30 @@ def create_UI(initial_message: str) -> gr.Blocks:
         gr.on(triggers=[input_audio_ui.change, input_text_ui.change], inputs=[input_audio_ui, input_text_ui], outputs=submit_btn,
               fn=lambda x, y: gr.Button(interactive=True) if bool(x) ^ bool(y) else gr.Button(interactive=False))
 
+
         file_uploader_ui.change(lambda: ([[None, initial_message]], None), outputs=[chatbot_ui, summary_ui]) \
             .then(load_context, inputs=file_uploader_ui)
 
-        clear_btn.click(lambda: ([[None, initial_message]], None), outputs=[chatbot_ui, summary_ui])
+        clear_btn.click(lambda: ([[None, initial_message]], None), outputs=[chatbot_ui, summary_ui]) \
+            .then(load_context, inputs=file_uploader_ui) \
+            .then(lambda: gr.Button(interactive=False), outputs=summarize_button)
 
         # block buttons, do the transcription and conversation, clear audio, unblock buttons
         gr.on(triggers=[submit_btn.click, input_text_ui.submit], fn=lambda: gr.Button(interactive=False), outputs=submit_btn) \
             .then(lambda: gr.Button(interactive=False), outputs=summarize_button) \
+            .then(lambda: gr.Button(interactive=False), outputs=clear_btn) \
             .then(transcribe, inputs=[input_audio_ui, input_text_ui, chatbot_ui], outputs=chatbot_ui) \
             .then(lambda: None, outputs=input_text_ui) \
             .then(chat, chatbot_ui, chatbot_ui) \
             .then(lambda: None, outputs=input_audio_ui) \
+            .then(lambda: gr.Button(interactive=True), outputs=clear_btn) \
             .then(lambda: gr.Button(interactive=True), outputs=summarize_button)
 
         # block button, do the summarization, unblock button
         summarize_button.click(lambda: gr.Button(interactive=False), outputs=summarize_button) \
+            .then(lambda: gr.Button(interactive=False), outputs=clear_btn) \
             .then(summarize, inputs=chatbot_ui, outputs=summary_ui) \
+            .then(lambda: gr.Button(interactive=True), outputs=clear_btn) \
             .then(lambda: gr.Button(interactive=True), outputs=summarize_button)
 
         return demo
